@@ -1,17 +1,13 @@
-
-import google.generativeai as genai
+import requests
+import json
+import re
+import time
+from dataclasses import dataclass
+from typing import Optional
 from app.core.config import settings
 from app.services.embedding import get_embedding
 from app.services.vector_store import query_chroma
-import re
-import time
-import requests
-import json
-from google.api_core import exceptions
-from dataclasses import dataclass
-from typing import Optional
 
-_gemini_configured = False
 
 @dataclass
 class GenerationResponse:
@@ -60,31 +56,45 @@ def generate_with_retry(model, prompt, retries=5, delay=4):
         except Exception as e:
              print(f"Groq Setup Error: {e}, falling back...")
 
-    # Fallback to Gemini (Or Primary if Groq not set)
+    # Fallback to Gemini REST API
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_CHAT_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+    
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 8192
+        }
+    }
+
     for attempt in range(retries):
         try:
-            # Explicitly set max output tokens for long pleadings
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=8192,
-                temperature=0.7
-            )
-            result = model.generate_content(prompt, generation_config=generation_config)
-            return GenerationResponse(text=result.text)
-        except exceptions.ResourceExhausted as e:
+            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            if resp.status_code == 200:
+                result = resp.json()
+                # Extract text from Gemini response structure
+                try:
+                    text = result['candidates'][0]['content']['parts'][0]['text']
+                    return GenerationResponse(text=text)
+                except (KeyError, IndexError):
+                     print(f"Gemini Bad Response format: {result}")
+                     raise ValueError("Gemini response parsing failed")
+            elif resp.status_code == 429:
+                 print(f"Gemini Rate Limit, waiting {delay}s...")
+                 time.sleep(delay)
+                 delay *= 2
+            else:
+                 print(f"Gemini Error {resp.status_code}: {resp.text}")
+                 if attempt == retries - 1:
+                     raise Exception(f"Gemini API Error: {resp.text}")
+                 
+        except Exception as e:
             if attempt < retries - 1:
-                print(f"Gemini Quota exceeded, waiting {delay}s...")
+                print(f"Gemini Exception: {e}, retrying...")
                 time.sleep(delay)
-                delay *= 2
             else:
                 raise e
-        except Exception as e:
-            raise e
-
-def configure_gemini():
-    global _gemini_configured
-    if not _gemini_configured:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        _gemini_configured = True
 
 def detect_language(text: str) -> str:
     """Detect the language of the query"""
@@ -107,8 +117,10 @@ def detect_language(text: str) -> str:
     return "en"
 
 def rerank_with_gemini(query: str, chunks: list[str], top_k: int = 3) -> list[tuple[str, float]]:
-    configure_gemini()
-    model = genai.GenerativeModel(settings.GEMINI_CHAT_MODEL)
+    # Removed configure_gemini() call
+    # model = genai.GenerativeModel(...) -> Just pass None as we use REST inside generate_with_retry
+    model = None 
+
     
     chunks_text = ""
     for i, chunk in enumerate(chunks[:10], 1):
@@ -144,12 +156,8 @@ Chunks: {chunks_text}
 
 class RAGService:
     def __init__(self):
-        configure_gemini()
-        # Fix model name: ensure we use a valid model ID
-        model_name = settings.GEMINI_CHAT_MODEL or "gemini-2.0-flash"
-        # validation: remove models/ prefix if present to be safe, or just use as is. 
-        # Actually newer SDKs prefer no prefix for some endpoints.
-        self.model = genai.GenerativeModel(model_name)
+        # No SDK configuration needed.
+        self.model = None # We don't use the SDK model object anymore
 
     def _retrieve(self, query, filters=None, top_k=20):
         # 1. Vector Search
