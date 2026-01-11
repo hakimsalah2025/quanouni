@@ -1,15 +1,12 @@
 fastapi
 python-dotenv
-google-generativeai
 supabase
 python-multipart
 requests
-numpy
 pydantic
 pydantic-settings
 rank_bm25
 passlib[bcrypt]
 bcrypt==3.2.2
-python-jose[cryptography]
+python-jose
 groq
-langchain-text-splitters

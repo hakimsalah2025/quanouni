@@ -2,7 +2,6 @@ import shutil
 import os
 import uuid
 from fastapi import UploadFile, HTTPException
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.services.embedding import get_batch_embeddings
 from app.services.vector_store import add_documents_to_chroma
 from app.services.database import insert_document_record, insert_chunks_records
@@ -27,16 +26,20 @@ def read_file_content(file_path: str) -> str:
 
 def chunk_text(text: str) -> list[str]:
     """
-    Split text into chunks using RecursiveCharacterTextSplitter.
-    Optimized for Arabic text with smaller, more focused chunks.
+    Split text into chunks using simple python slicing.
+    Replaces heavy Langchain dependency.
     """
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=512,  # Optimized for better context recall
-        chunk_overlap=150,  # Increased overlap to prevent context loss
-        separators=["\n\n", "\n", "。", ".", " ", ""],
-        length_function=len,
-    )
-    chunks = text_splitter.split_text(text)
+    chunk_size = 512
+    overlap = 150
+    chunks = []
+    start = 0
+    text_len = len(text)
+
+    while start < text_len:
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += (chunk_size - overlap)
+    
     return chunks
 
 def process_document(file_path: str):
