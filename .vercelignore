@@ -10,6 +10,7 @@ logs/
 tmp/
 scripts/
 tests/
-# Exclude heavy documentation or media if not needed for the app
+backend/test_qa.py
+backend/create_admin.py
 *.pdf
-*.mp4
+*.md
