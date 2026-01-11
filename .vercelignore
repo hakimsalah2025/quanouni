@@ -1,0 +1,15 @@
+# Vercel Ignore
+data/
+*.rar
+*.zip
+.git/
+__pycache__/
+venv/
+*.pyc
+logs/
+tmp/
+scripts/
+tests/
+# Exclude heavy documentation or media if not needed for the app
+*.pdf
+*.mp4
