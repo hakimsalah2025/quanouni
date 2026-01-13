@@ -142,7 +142,7 @@ async def register(request: RegisterRequest, req: Request = None):  # Added Requ
             ip_address=req.client.host if req else "unknown"
         )
         
-        return {"message": "User registered successfully", "user_id": new_user['id']}
+        return {"success": True, "message": "User registered successfully", "user_id": new_user['id']}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
