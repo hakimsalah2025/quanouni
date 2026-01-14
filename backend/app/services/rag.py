@@ -255,7 +255,16 @@ class RAGService:
             print(f"Generation failed after retries: {e}")
             answer = "عذراً، النظام مشغول جداً حالياً (ضغط على الموديل). هذه هي المصادر التي وجدتها، لكن لم أتمكن من صياغة الإجابة النهائية. يرجى المحاولة بعد قليل."
         
-        return {"query": query, "answer": answer, "sources": [{"filename": m.get('filename'), "chunk_index": i+1} for i, m in enumerate(final_metas)]}
+        return {
+            "query": query, 
+            "answer": answer, 
+            "sources": [{
+                "filename": m.get('filename'),
+                "document_id": m.get('document_id'),
+                "chunk_index": m.get('chunk_index', i+1),
+                "content_preview": final_docs[i][:150] + "..." if len(final_docs[i]) > 150 else final_docs[i]
+            } for i, m in enumerate(final_metas)]
+        }
 
     def _extract_search_query(self, situation: str) -> str:
         """استخراج ذكي للكلمات المفتاحية باستخدام LLM لتحسين دقة البحث"""

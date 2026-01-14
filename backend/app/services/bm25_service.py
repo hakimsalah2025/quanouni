@@ -32,7 +32,7 @@ class BM25Service:
         
         while True:
             # Join with documents table to get metadata
-            url = f"{settings.SUPABASE_URL}/rest/v1/chunk?select=id,content,document_id,documents(filename,category,source_meta)&offset={offset}&limit={limit}"
+            url = f"{settings.SUPABASE_URL}/rest/v1/chunk?select=id,content,document_id,chunk_index,documents(filename,category,source_meta)&offset={offset}&limit={limit}"
             resp = requests.get(url, headers=headers, timeout=60)
             
             if resp.status_code != 200:
@@ -66,7 +66,9 @@ class BM25Service:
             metadata = {
                 'filename': doc_info.get('filename') if doc_info else 'Unknown',
                 'category': doc_info.get('category') if doc_info else None,
-                'source_meta': doc_info.get('source_meta') if doc_info else {}
+                'source_meta': doc_info.get('source_meta') if doc_info else {},
+                'document_id': chunk.get('document_id'),  # Added for document viewer
+                'chunk_index': chunk.get('chunk_index', 0)  # Added for document viewer
             }
             
             if content:

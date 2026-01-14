@@ -40,7 +40,17 @@ def query_chroma(query_embedding: list[float], n_results: int = 20, where: dict 
         for item in data:
             documents.append(item['content'])
             distances.append(item['similarity'])
-            metadatas.append(item['metadata'])
+            # Merge document_id and chunk_index into metadata
+            meta = item.get('metadata') or {}
+            if isinstance(meta, dict):
+                meta['document_id'] = item.get('document_id')
+                meta['chunk_index'] = item.get('chunk_index')
+            else:
+                meta = {
+                    'document_id': item.get('document_id'),
+                    'chunk_index': item.get('chunk_index')
+                }
+            metadatas.append(meta)
             
         return {
             'documents': [documents],

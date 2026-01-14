@@ -405,3 +405,46 @@ async def get_documents():
     supabase = get_supabase()
     response = supabase.table("documents").select("*").order("upload_date", desc=True).execute()
     return {"documents": response.data}
+
+@router.get("/documents/{document_id}/full")
+async def get_full_document(document_id: str, highlight_chunk: int = None):
+    """
+    إرجاع الوثيقة الكاملة مع جميع الـ chunks مرتبة.
+    يمكن تحديد chunk_index لإبرازه في الواجهة.
+    """
+    supabase = get_supabase()
+    
+    # 1. جلب معلومات الوثيقة
+    doc_res = supabase.table("documents").select("*").eq("id", document_id).execute()
+    if not doc_res.data:
+        raise HTTPException(status_code=404, detail="الوثيقة غير موجودة")
+    doc = doc_res.data[0]
+    
+    # 2. جلب جميع الـ chunks مرتبة
+    chunks_res = supabase.table("chunk").select("content, chunk_index").eq("document_id", document_id).order("chunk_index").execute()
+    
+    # 3. بناء النص الكامل مع تحديد الجزء المبرز
+    chunks_data = []
+    full_content = ""
+    for chunk in chunks_res.data:
+        is_highlighted = highlight_chunk is not None and chunk['chunk_index'] == highlight_chunk
+        chunks_data.append({
+            "index": chunk['chunk_index'],
+            "content": chunk['content'],
+            "highlighted": is_highlighted
+        })
+        full_content += chunk['content'] + "\n\n"
+    
+    return {
+        "document": {
+            "id": doc['id'],
+            "filename": doc['filename'],
+            "category": doc.get('category', 'other'),
+            "total_chunks": doc['total_chunks'],
+            "upload_date": doc.get('upload_date')
+        },
+        "full_content": full_content.strip(),
+        "chunks": chunks_data,
+        "highlight_chunk": highlight_chunk
+    }
+

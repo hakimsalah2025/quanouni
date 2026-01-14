@@ -429,12 +429,23 @@ async function performSearch() {
 
         if (data.sources && data.sources.length) {
             data.sources.forEach(source => {
+                // Hide view button for chunk_index 0 (usually document header)
+                const canView = source.document_id && source.chunk_index > 0;
+                const clickHandler = canView
+                    ? `onclick="openDocumentViewer('${source.document_id}', ${source.chunk_index})"`
+                    : '';
+                const clickableClass = canView ? 'clickable' : '';
+
                 html += `
-                    <div class="source-card">
+                    <div class="source-card ${clickableClass}" 
+                         ${clickHandler}
+                         title="${canView ? 'اضغط لعرض الوثيقة الكاملة' : ''}">
                         <div class="source-header">
                             <span><i class="fa-solid fa-file-lines"></i> ${source.filename}</span>
                             <span>جزء ${source.chunk_index}</span>
                         </div>
+                        ${source.content_preview ? `<div class="source-preview">${source.content_preview}</div>` : ''}
+                        ${canView ? '<div class="source-footer"><span class="source-badge">📖 عرض المصدر</span></div>' : ''}
                     </div>
                 `;
             });
@@ -1010,3 +1021,10 @@ async function copyToClipboard(text, btn) {
         alert('تعذر نسخ النص');
     }
 }
+
+// --- Document Viewer ---
+function openDocumentViewer(documentId, chunkIndex) {
+    // فتح نافذة جديدة مع الـ document_id و chunk_index في الـ URL
+    window.open(`document-viewer.html?doc=${documentId}&chunk=${chunkIndex}`, '_blank');
+}
+
